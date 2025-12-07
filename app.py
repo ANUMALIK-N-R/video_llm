@@ -14,8 +14,8 @@ API_KEY = st.secrets["API_KEY"]   # <<<<< SECRET USED HERE
 
 # ✔ Correct API endpoint (no v1beta, no preview)
 API_URL = (
-    "https://generativelanguage.googleapis.com/v1/models/"
-    "gemini-1.5-flash:generateContent?key=" + API_KEY
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "gemini-2.5-flash-preview-09-2025:generateContent?key=" + API_KEY
 )
 
 MAX_FRAMES_FOR_VLM = 8
