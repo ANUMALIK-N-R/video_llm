@@ -10,11 +10,14 @@ from io import BytesIO
 from PIL import Image
 
 # --- 1. CONFIGURATION ---
-API_KEY = "AIzaSyB_tg6FH673c3MIKgj7rGM4y9Li2xDUOEw"
+API_KEY = st.secrets["API_KEY"]   # <<<<< SECRET USED HERE
+
+# ✔ Correct API endpoint (no v1beta, no preview)
 API_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash-preview-09-2025:generateContent?key=" + API_KEY
+    "https://generativelanguage.googleapis.com/v1/models/"
+    "gemini-1.5-flash:generateContent?key=" + API_KEY
 )
+
 MAX_FRAMES_FOR_VLM = 8
 VLM_SAMPLE_RATE = 2
 TARGET_FPS = 1
@@ -31,26 +34,35 @@ if 'video_duration' not in st.session_state:
 
 def track_objects(video_path: str, video_duration: float):
     st.session_state.object_memory = {}
-
     object_memory = {}
 
     id_1 = 'T-1'
-    object_memory[id_1] = {'id': id_1,
-                           'class': 'person', 'color': 'Green', 'history': []}
+    object_memory[id_1] = {
+        'id': id_1,
+        'class': 'person',
+        'color': 'Green',
+        'history': []
+    }
     for t in np.arange(0, video_duration, TARGET_FPS):
         t = round(t, 2)
         x = int((t * 50) % 200)
         object_memory[id_1]['history'].append(
-            {'time': t, 'bbox': {'x': x, 'y': 50, 'w': 30, 'h': 80}})
+            {'time': t, 'bbox': {'x': x, 'y': 50, 'w': 30, 'h': 80}}
+        )
 
     id_2 = 'T-2'
     start_time_car = video_duration / 2
-    object_memory[id_2] = {'id': id_2,
-                           'class': 'car', 'color': 'Red', 'history': []}
+    object_memory[id_2] = {
+        'id': id_2,
+        'class': 'car',
+        'color': 'Red',
+        'history': []
+    }
     for t in np.arange(start_time_car, video_duration, TARGET_FPS):
         t = round(t, 2)
         object_memory[id_2]['history'].append(
-            {'time': t, 'bbox': {'x': 300, 'y': 150, 'w': 100, 'h': 50}})
+            {'time': t, 'bbox': {'x': 300, 'y': 150, 'w': 100, 'h': 50}}
+        )
 
     st.session_state.object_memory = object_memory
     return object_memory
@@ -65,7 +77,6 @@ def get_action_context(start_time: float, end_time: float) -> str:
         return "Deep Temporal Analysis: **Fast Action**."
     elif start_time > 5 and duration <= 2:
         return "Deep Temporal Analysis: **Short/Isolated Action**."
-
     return "Deep Temporal Analysis: **Mild Action**."
 
 
@@ -107,16 +118,15 @@ def parse_time_and_attributes(question: str, video_duration: float) -> dict:
     q_lower = question.lower()
     start_time, end_time = 0.0, video_duration
     clean_q = question
-    import re
 
+    import re
     m_to = re.search(r"from\s*(\d+\.?\d*)\s*s?\s*to\s*(\d+\.?\d*)", q_lower)
     m_at = re.search(r"at\s*(\d+\.?\d*)", q_lower)
 
     if m_to:
         start, end = float(m_to.group(1)), float(m_to.group(2))
         start_time, end_time = min(start, end), max(start, end)
-        clean_q = re.sub(r"from.*?to.*?", "", question,
-                         flags=re.IGNORECASE).strip()
+        clean_q = re.sub(r"from.*?to.*?", "", question, flags=re.IGNORECASE).strip()
 
     elif m_at:
         t = float(m_at.group(1))
@@ -124,8 +134,7 @@ def parse_time_and_attributes(question: str, video_duration: float) -> dict:
         clean_q = re.sub(r"at.*?", "", question, flags=re.IGNORECASE).strip()
 
     classes = ['person', 'car', 'truck', 'dog']
-    colors = ['red', 'green', 'blue', 'yellow',
-              'purple', 'brown', 'white', 'black']
+    colors = ['red', 'green', 'blue', 'yellow', 'purple', 'brown', 'white', 'black']
 
     target_class = next((c for c in classes if c in q_lower), None)
     target_color = next((c for c in colors if c in q_lower), None)
@@ -149,8 +158,7 @@ def get_frames_base64(video_path: str, start_time: float, end_time: float):
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     duration = end_time - start_time
-    total_samples = min(MAX_FRAMES_FOR_VLM, max(
-        1, int(duration * VLM_SAMPLE_RATE)))
+    total_samples = min(MAX_FRAMES_FOR_VLM, max(1, int(duration * VLM_SAMPLE_RATE)))
     step_time = duration / total_samples
 
     frames = []
@@ -178,7 +186,8 @@ def get_frames_base64(video_path: str, start_time: float, end_time: float):
 def fetch_with_exponential_backoff(url, options, retries=0):
     try:
         r = requests.post(
-            url, headers=options['headers'], json=options['json'])
+            url, headers=options['headers'], json=options['json']
+        )
         r.raise_for_status()
         return r
     except Exception as e:
@@ -212,7 +221,6 @@ def answer_generative(frames, prompt: str):
 # --- 7. ORCHESTRATION ------------------------------------------------------
 
 def handle_query_orchestration(uploaded_file, question):
-
     if not uploaded_file:
         st.error("Upload a video first.")
         return
@@ -226,21 +234,13 @@ def handle_query_orchestration(uploaded_file, question):
         f.write(uploaded_file.read())
         temp_video = f.name
 
-    parsed = parse_time_and_attributes(
-        question, st.session_state.video_duration)
+    parsed = parse_time_and_attributes(question, st.session_state.video_duration)
 
-    st.info(
-        f"Analyzing time window {parsed['start_time']:.1f}s → {parsed['end_time']:.1f}s"
-    )
+    st.info(f"Analyzing time window {parsed['start_time']:.1f}s → {parsed['end_time']:.1f}s")
 
-    q_lower = question.lower()
-
-    # Fixed: Using "in" instead of includes()
-    if ("how many" in q_lower) or ("count" in q_lower):
+    if "how many" in question.lower() or "count" in question.lower():
         count = len(st.session_state.object_memory)
-        st.session_state.output_answer = (
-            f"**Count:** {count} objects detected (mock)."
-        )
+        st.session_state.output_answer = f"**Count:** {count} objects detected (mock)."
         os.unlink(temp_video)
         return
 
@@ -275,9 +275,7 @@ def handle_query_orchestration(uploaded_file, question):
             os.unlink(temp_video)
             return
 
-    frames = get_frames_base64(
-        temp_video, parsed['start_time'], parsed['end_time']
-    )
+    frames = get_frames_base64(temp_video, parsed['start_time'], parsed['end_time'])
     st.success(f"Sampled {len(frames)} frames.")
 
     answer = answer_generative(frames, final_prompt)
@@ -300,13 +298,13 @@ st.write("Deep Temporal Analysis • Memory • Generative QA")
 
 left, right = st.columns([1.2, 1.6])
 
-# ---------------- UPLOAD COLUMN ----------------
 with left:
-    st.header("Upload Video the video content")
+    st.header("Upload Video")
 
     uploaded_file = st.file_uploader(
         "Upload CCTV/Camera Footage",
-        type=["mp4", "avi", "mov"]
+        type=["mp4", "avi", "mov"],
+        label_visibility="visible"
     )
 
     if uploaded_file:
@@ -331,12 +329,11 @@ with left:
 
         os.unlink(temp_video_path)
 
-# ---------------- QUERY COLUMN ----------------
 with right:
     st.header("Ask a Question")
 
     q = st.text_input(
-        "",
+        "Your question:",
         placeholder="Example: What is the green person doing from 2s to 5s?"
     )
 
@@ -346,15 +343,11 @@ with right:
         else:
             st.error("Upload a video first.")
 
-# ---------------- ANSWER PANEL ----------------
-st.header("Analysis on the video based on the query")
-
+st.header("Analysis Output")
 if 'output_answer' in st.session_state:
     st.code(st.session_state.output_answer)
 else:
-    st.info("Results appear here after analysis.")
+    st.info("Results will appear here.")
 
-# ---------------- MEMORY LOG ----------------
 st.header("Object Memory")
 st.code(get_memory_summary())
-
