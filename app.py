@@ -219,16 +219,6 @@ def answer_generative(frames, prompt: str):
 
 
 # --- 7. ORCHESTRATION ------------------------------------------------------
-FORMAT_RULES = """
-IMPORTANT:
-Your response must follow this exact format:
-
-**Answer:** <one or two sentences, concise, direct>
-
-**Reasoning:** <brief reasoning, max 3 bullet points>
-
-**Objects Seen:** <bullet list with object + color + action>
-"""
 
 def handle_query_orchestration(uploaded_file, question):
     if not uploaded_file:
@@ -261,12 +251,9 @@ def handle_query_orchestration(uploaded_file, question):
     temporal_ctx = get_action_context(parsed['start_time'], parsed['end_time'])
 
     final_prompt = (
-        f"{FORMAT_RULES}\n\n"
-        f"GIVEN MEMORY: {summary} "
         f"GIVEN TEMPORAL CONTEXT: {temporal_ctx}. "
         f"Answer: {parsed['clean_question']}"
     )
-
 
     if target_class or target_color:
         tracks = find_tracks_by_attributes(target_class, target_color)
@@ -277,12 +264,10 @@ def handle_query_orchestration(uploaded_file, question):
                 last = t['history'][-1]
                 summary += f"Track {t['id']} last seen at {last['time']}s. "
             final_prompt = (
-                f"{FORMAT_RULES}\n\n"
                 f"GIVEN MEMORY: {summary} "
                 f"GIVEN TEMPORAL CONTEXT: {temporal_ctx}. "
                 f"Answer: {parsed['clean_question']}"
-                )
-
+            )
         else:
             st.session_state.output_answer = (
                 "No tracked object matches your description."
