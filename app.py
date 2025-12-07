@@ -9,7 +9,78 @@ import os
 from io import BytesIO
 from PIL import Image
 
-# --- 1. CONFIGURATION ---
+# ---------------------------------------------------------------------
+# CUSTOM PROFESSIONAL WHITE/BLACK WEBSITE THEME
+# ---------------------------------------------------------------------
+
+st.markdown("""
+<style>
+
+/* GLOBAL */
+body, .stApp {
+    background-color: white !important;
+    color: black !important;
+    font-family: 'Inter', sans-serif;
+}
+
+/* HEADERS */
+h1, h2, h3 {
+    font-weight: 600 !important;
+    color: black !important;
+}
+
+/* UPLOAD & INPUT PANELS */
+section, .css-1v0mbdj, .css-1t32rxk, .css-1dp5vir {
+    background: #ffffff !important;
+    border: 1px solid #e5e5e5 !important;
+    padding: 20px !important;
+    border-radius: 8px !important;
+}
+
+/* BUTTON */
+.stButton button {
+    background-color: black !important;
+    color: white !important;
+    padding: 10px 18px;
+    border-radius: 6px;
+    border: none;
+    font-size: 16px;
+}
+.stButton button:hover {
+    background-color: #333333 !important;
+}
+
+/* TEXT INPUT */
+input[type="text"] {
+    border-radius: 6px !important;
+    border: 1px solid #cfcfcf !important;
+}
+
+/* CODE BLOCKS */
+.stCodeBlock {
+    background: #f7f7f7 !important;
+    color: black !important;
+    border-radius: 6px;
+    border: 1px solid #dcdcdc !important;
+}
+
+/* SIDEBAR */
+.css-1d391kg, .css-1lcbmhc {
+    background-color: white !important;
+    border-right: 1px solid #e5e5e5 !important;
+}
+
+/* VIDEO PLAYER BLOCK */
+.stVideo {
+    border-radius: 6px;
+    border: 1px solid #e5e5e5 !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# -------------------- ORIGINAL LOGIC BELOW -------------------------------
+
 API_KEY = "AIzaSyB_tg6FH673c3MIKgj7rGM4y9Li2xDUOEw"
 API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -20,15 +91,13 @@ VLM_SAMPLE_RATE = 2
 TARGET_FPS = 1
 MAX_RETRIES = 5
 
-# --- 2. SESSION STATE ---
 if 'object_memory' not in st.session_state:
     st.session_state.object_memory = {}
 if 'video_duration' not in st.session_state:
     st.session_state.video_duration = 0.0
 
 
-# --- 3. MOCK TRACKER MODULES ------------------------------------------------
-
+# ---------------- MOCK TRACKER (same as before) ----------------
 def track_objects(video_path: str, video_duration: float):
     st.session_state.object_memory = {}
 
@@ -60,24 +129,24 @@ def get_action_context(start_time: float, end_time: float) -> str:
     duration = end_time - start_time
 
     if duration >= 4 and start_time < 2:
-        return "Deep Temporal Analysis: **Sustained Movement**."
+        return "Sustained movement over early timeline."
     elif start_time < 5 and duration <= 3:
-        return "Deep Temporal Analysis: **Fast Action**."
+        return "Fast short-duration action."
     elif start_time > 5 and duration <= 2:
-        return "Deep Temporal Analysis: **Short/Isolated Action**."
+        return "Isolated short action."
 
-    return "Deep Temporal Analysis: **Mild Action**."
+    return "Moderate activity detected."
 
 
-# --- 4. MEMORY FUNCTIONS ----------------------------------------------------
+# --------------- MEMORY FUNCTIONS -----------------
 
 def get_memory_summary() -> str:
     memory = st.session_state.object_memory
 
     if not memory:
-        return "Memory is empty. Upload a video first."
+        return "No memory loaded yet."
 
-    summary = "--- Persistent Tracks ---\n"
+    summary = "--- Object Tracks ---\n"
     for track_id, track in memory.items():
         if track['history']:
             last = track['history'][-1]
@@ -101,7 +170,7 @@ def find_tracks_by_attributes(cls: str, color: str):
     return results
 
 
-# --- 5. VIDEO UTILITIES -----------------------------------------------------
+# ---------------- VIDEO UTILITIES -------------------
 
 def parse_time_and_attributes(question: str, video_duration: float) -> dict:
     q_lower = question.lower()
@@ -173,7 +242,7 @@ def get_frames_base64(video_path: str, start_time: float, end_time: float):
     return frames
 
 
-# --- 6. GEMINI API CORE ----------------------------------------------------
+# ---------------- GEMINI API -------------------
 
 def fetch_with_exponential_backoff(url, options, retries=0):
     try:
@@ -194,7 +263,7 @@ def answer_generative(frames, prompt: str):
             {"role": "user", "parts": frames + [{"text": prompt}]}
         ],
         "systemInstruction": {
-            "parts": [{"text": "You analyze CCTV frames. Stay factual."}]
+            "parts": [{"text": "You analyze surveillance frames. Respond factually."}]
         }
     }
 
@@ -209,7 +278,7 @@ def answer_generative(frames, prompt: str):
     )
 
 
-# --- 7. ORCHESTRATION ------------------------------------------------------
+# ---------------- ORCHESTRATION -------------------
 
 def handle_query_orchestration(uploaded_file, question):
 
@@ -218,7 +287,7 @@ def handle_query_orchestration(uploaded_file, question):
         return
 
     if not question.strip():
-        st.error("Enter a question.")
+        st.error("Enter a query.")
         return
 
     uploaded_file.seek(0)
@@ -229,17 +298,12 @@ def handle_query_orchestration(uploaded_file, question):
     parsed = parse_time_and_attributes(
         question, st.session_state.video_duration)
 
-    st.info(
-        f"Analyzing time window {parsed['start_time']:.1f}s → {parsed['end_time']:.1f}s"
-    )
-
     q_lower = question.lower()
 
-    # Fixed: Using "in" instead of includes()
     if ("how many" in q_lower) or ("count" in q_lower):
         count = len(st.session_state.object_memory)
         st.session_state.output_answer = (
-            f"**Count:** {count} objects detected (mock)."
+            f"Count: {count} objects detected."
         )
         os.unlink(temp_video)
         return
@@ -247,12 +311,12 @@ def handle_query_orchestration(uploaded_file, question):
     target_class = parsed['target_class']
     target_color = parsed['target_color']
 
-    query_type = "Deep Temporal + Generative"
+    query_type = "Temporal + Generative"
     temporal_ctx = get_action_context(parsed['start_time'], parsed['end_time'])
 
     final_prompt = (
-        f"GIVEN TEMPORAL CONTEXT: {temporal_ctx}. "
-        f"Answer: {parsed['clean_question']}"
+        f"Context: {temporal_ctx}. "
+        f"Question: {parsed['clean_question']}"
     )
 
     if target_class or target_color:
@@ -264,13 +328,13 @@ def handle_query_orchestration(uploaded_file, question):
                 last = t['history'][-1]
                 summary += f"Track {t['id']} last seen at {last['time']}s. "
             final_prompt = (
-                f"GIVEN MEMORY: {summary} "
-                f"GIVEN TEMPORAL CONTEXT: {temporal_ctx}. "
-                f"Answer: {parsed['clean_question']}"
+                f"Memory: {summary} "
+                f"Context: {temporal_ctx}. "
+                f"Question: {parsed['clean_question']}"
             )
         else:
             st.session_state.output_answer = (
-                "No tracked object matches your description."
+                "No object matches the given description."
             )
             os.unlink(temp_video)
             return
@@ -278,34 +342,30 @@ def handle_query_orchestration(uploaded_file, question):
     frames = get_frames_base64(
         temp_video, parsed['start_time'], parsed['end_time']
     )
-    st.success(f"Sampled {len(frames)} frames.")
 
     answer = answer_generative(frames, final_prompt)
 
     st.session_state.output_answer = (
-        f"**Query Type:** {query_type}\n\n"
-        f"**Temporal Context:** {temporal_ctx}\n\n"
-        f"**Answer:** {answer}"
+        f"Query Type: {query_type}\n\n"
+        f"Temporal Context: {temporal_ctx}\n\n"
+        f"Answer:\n{answer}"
     )
 
     os.unlink(temp_video)
 
 
-# --- 8. MODERN UI ----------------------------------------------------------
+# ---------------------- UI -----------------------
 
-st.set_page_config(page_title="Four-Tier Video LLM", layout="wide")
-
-st.title("Video LLM System - A video analyzer")
-st.write("Deep Temporal Analysis • Memory • Generative QA")
+st.title("Video Intelligence System")
+st.write("A professional interface for video understanding and query-based analysis.")
 
 left, right = st.columns([1.2, 1.6])
 
-# ---------------- UPLOAD COLUMN ----------------
 with left:
-    st.header("Upload Video the video content")
+    st.subheader("1. Upload Video")
 
     uploaded_file = st.file_uploader(
-        "Upload CCTV/Camera Footage",
+        "Upload CCTV or camera footage",
         type=["mp4", "avi", "mov"]
     )
 
@@ -315,30 +375,25 @@ with left:
         uploaded_file.seek(0)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as f:
             f.write(uploaded_file.read())
-            temp_video_path = f.name
+            temp_path = f.name
 
-        cap = cv2.VideoCapture(temp_video_path)
+        cap = cv2.VideoCapture(temp_path)
         if cap.isOpened():
             frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
             fps = cap.get(cv2.CAP_PROP_FPS)
             st.session_state.video_duration = frames / fps
-            st.success(f"Duration: {st.session_state.video_duration:.1f}s")
+            st.success(f"Video Duration: {st.session_state.video_duration:.1f} seconds")
             cap.release()
 
             if not st.session_state.object_memory:
-                track_objects(temp_video_path, st.session_state.video_duration)
-                st.info("Object memory initialized (mock).")
+                track_objects(temp_path, st.session_state.video_duration)
+                st.info("Object memory initialized.")
 
-        os.unlink(temp_video_path)
+        os.unlink(temp_path)
 
-# ---------------- QUERY COLUMN ----------------
 with right:
-    st.header("Ask a Question")
-
-    q = st.text_input(
-        "",
-        placeholder="Example: What is the green person doing from 2s to 5s?"
-    )
+    st.subheader("2. Ask a Query")
+    q = st.text_input("", placeholder="Example: What is the green person doing from 2s to 5s?")
 
     if st.button("Analyze"):
         if uploaded_file:
@@ -346,14 +401,11 @@ with right:
         else:
             st.error("Upload a video first.")
 
-# ---------------- ANSWER PANEL ----------------
-st.header("Analysis on the video based on the query")
-
+st.subheader("Analysis Result")
 if 'output_answer' in st.session_state:
     st.code(st.session_state.output_answer)
 else:
-    st.info("Results appear here after analysis.")
+    st.info("Results will appear here.")
 
-# ---------------- MEMORY LOG ----------------
-st.header("Object Memory")
+st.subheader("Object Memory")
 st.code(get_memory_summary())
